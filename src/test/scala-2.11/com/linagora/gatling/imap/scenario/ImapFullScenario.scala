@@ -14,7 +14,7 @@ import scala.concurrent.duration._
 
 class ImapFullScenario extends Simulation {
   val feeder = csv("users.csv").circular
-  val userCount: Int = feeder.records.length
+  val userCount: Int = feeder.records.length * 10
 
   val receiveEmail = exec(imap("append").append("INBOX", Some(Seq("\\Flagged")), Option.empty[Calendar],
                   """From: expeditor@example.com
@@ -58,7 +58,7 @@ class ImapFullScenario extends Simulation {
   setUp(scn.
       inject(
           nothingFor(1 seconds),
-          rampUsers(userCountWith50PercentsOfThemAlsoReadingTheirEmailOnAnotherDevice) over(10 minutes)))
-    .protocols(imap.host("localhost"))
-    .maxDuration(3 hours)
+          rampUsers(userCountWith50PercentsOfThemAlsoReadingTheirEmailOnAnotherDevice) over(1 minutes)))
+    .protocols(imap.host("mail.awesomepaas.net"))
+    .maxDuration(3 minutes)
 }
