@@ -6,5 +6,6 @@ services:
 script:
   - sbt compile
   - sbt test
+  - sbt gatling:test
   - sbt gatling-it:test
 
