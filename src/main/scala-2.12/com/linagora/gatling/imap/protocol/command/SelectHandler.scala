@@ -5,8 +5,9 @@ import java.util
 import akka.actor.{ActorRef, Props}
 import com.lafaspot.imapnio.client.IMAPSession
 import com.lafaspot.imapnio.listener.IMAPCommandListener
-import com.linagora.gatling.imap.protocol.{Command, ImapResponses, Response, Tag, UserId}
+import com.linagora.gatling.imap.protocol._
 import com.sun.mail.imap.protocol.IMAPResponse
+import com.typesafe.scalalogging.Logger
 import io.gatling.core.akka.BaseActor
 
 import scala.collection.immutable.Seq
@@ -19,9 +20,9 @@ class SelectHandler(session: IMAPSession, tag: Tag) extends BaseActor {
 
   override def receive: Receive = {
     case Command.Select(userId, mailbox) =>
-      val listener = new SelectListener(userId)
-      session.executeSelectCommand(tag.string, mailbox, listener)
+      val listener = new SelectListener(self, sender, logger, userId)
       context.become(waitCallback(sender()))
+      session.executeSelectCommand(tag.string, mailbox, listener)
   }
 
   def waitCallback(sender: ActorRef): Receive = {
@@ -30,21 +31,20 @@ class SelectHandler(session: IMAPSession, tag: Tag) extends BaseActor {
       context.stop(self)
   }
 
+}
 
-  class SelectListener(userId: UserId) extends IMAPCommandListener {
+private[command] class SelectListener(self: ActorRef, sender: ActorRef, logger: Logger, userId: UserId) extends IMAPCommandListener {
 
-    import collection.JavaConverters._
+  import collection.JavaConverters._
 
-    override def onMessage(session: IMAPSession, response: IMAPResponse): Unit = {
-      logger.trace(s"Untagged message for $userId : ${response.toString}")
-    }
-
-    override def onResponse(session: IMAPSession, tag: String, responses: util.List[IMAPResponse]): Unit = {
-      val response = ImapResponses(responses.asScala.to[Seq])
-      logger.trace(s"On response for $userId :\n ${response.mkString("\n")}\n ${sender.path}")
-      self ! Response.Selected(response)
-    }
+  override def onMessage(session: IMAPSession, response: IMAPResponse): Unit = {
+    logger.trace(s"Untagged message for $userId : ${response.toString}")
   }
 
+  override def onResponse(session: IMAPSession, tag: String, responses: util.List[IMAPResponse]): Unit = {
+    val response = ImapResponses(responses.asScala.to[Seq])
+    logger.trace(s"On response for $userId :\n ${response.mkString("\n")}\n ${sender.path}")
+    self ! Response.Selected(response)
+  }
 }
 

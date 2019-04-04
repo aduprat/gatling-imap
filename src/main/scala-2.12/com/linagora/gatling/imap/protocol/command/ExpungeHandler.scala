@@ -5,8 +5,9 @@ import java.util
 import akka.actor.{ActorRef, Props}
 import com.lafaspot.imapnio.client.IMAPSession
 import com.lafaspot.imapnio.listener.IMAPCommandListener
-import com.linagora.gatling.imap.protocol.{Command, ImapResponses, Response, UserId, Tag}
+import com.linagora.gatling.imap.protocol._
 import com.sun.mail.imap.protocol.IMAPResponse
+import com.typesafe.scalalogging.Logger
 import io.gatling.core.akka.BaseActor
 
 import scala.collection.immutable.Seq
@@ -19,9 +20,9 @@ class ExpungeHandler(session: IMAPSession, tag: Tag) extends BaseActor {
 
   override def receive: Receive = {
     case Command.Expunge(userId) =>
-      val listener = new ExpungeListener(userId)
-      session.executeTaggedRawTextCommand(tag.string, "EXPUNGE", listener)
+      val listener = new ExpungeListener(self, sender, logger, userId)
       context.become(waitCallback(sender()))
+      session.executeTaggedRawTextCommand(tag.string, "EXPUNGE", listener)
   }
 
   def waitCallback(sender: ActorRef): Receive = {
@@ -30,20 +31,19 @@ class ExpungeHandler(session: IMAPSession, tag: Tag) extends BaseActor {
       context.stop(self)
   }
 
-  class ExpungeListener(userId: UserId) extends IMAPCommandListener {
-
-    import collection.JavaConverters._
-
-    override def onMessage(session: IMAPSession, response: IMAPResponse): Unit = {
-      logger.trace(s"Untagged message for $userId : ${response.toString}")
-    }
-
-    override def onResponse(session: IMAPSession, tag: String, responses: util.List[IMAPResponse]): Unit = {
-      val response = ImapResponses(responses.asScala.to[Seq])
-      logger.trace(s"On response for $userId :\n ${response.mkString("\n")}\n ${sender.path}")
-      self ! Response.Expunged(response)
-    }
-  }
-
 }
 
+private[command] class ExpungeListener(self: ActorRef, sender: ActorRef, logger: Logger, userId: UserId) extends IMAPCommandListener {
+
+  import collection.JavaConverters._
+
+  override def onMessage(session: IMAPSession, response: IMAPResponse): Unit = {
+    logger.trace(s"Untagged message for $userId : ${response.toString}")
+  }
+
+  override def onResponse(session: IMAPSession, tag: String, responses: util.List[IMAPResponse]): Unit = {
+    val response = ImapResponses(responses.asScala.to[Seq])
+    logger.trace(s"On response for $userId :\n ${response.mkString("\n")}\n ${sender.path}")
+    self ! Response.Expunged(response)
+  }
+}

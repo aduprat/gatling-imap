@@ -27,6 +27,13 @@ class ImapSessions(protocol: ImapProtocol) extends BaseActor {
 
   override def receive: Receive = {
     case cmd: Command =>
+      logger.trace(
+        s"""Receive Command in ImapSessions
+           |USER : ${cmd.userId}
+           |CMD : $cmd
+           |sender : $sender
+           |
+         """.stripMargin)
       sessionFor(cmd.userId).forward(cmd)
   }
 
@@ -76,7 +83,7 @@ private class ImapSession(client: IMAPClient, protocol: ImapProtocol) extends Ba
   val uri = new URI(s"imap://${protocol.host}:${protocol.port}")
   val config: Properties = protocol.config
   logger.debug(s"connecting to $uri with $config")
-  val session: ClientSession = client.createSession(uri, config, connectionListener, new LogManager(Logger.Level.FATAL, LogPage.DEFAULT_SIZE))
+  val session: ClientSession = client.createSession(uri, config, connectionListener, new LogManager(Logger.Level.ERROR, LogPage.DEFAULT_SIZE))
   private var currentTag: Tag = Tag.initial
 
   override def receive: Receive = disconnected
